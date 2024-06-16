@@ -1,0 +1,14 @@
+{
+  "name": "frontend",
+  "packageManager": "yarn@4.3.0",
+  "scripts": {
+    "start": "node server.js" 
+  },
+  "volta": {
+    "node": "20.14.0",
+    "yarn": "4.3.0"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
