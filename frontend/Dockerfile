@@ -13,8 +13,5 @@ RUN npm install
 # アプリケーションのソースをコピー
 COPY . .
 
-# アプリケーションをビルド
-RUN npm run build
-
 # アプリケーションを開始
 CMD ["node", "server.js"]

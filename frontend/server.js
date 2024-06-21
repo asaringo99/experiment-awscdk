@@ -1,11 +1,12 @@
 const express = require('express');
 const app = express();
-const PORT = 3000;
+const PORT = 80;
 
 const environment = process.env.ENVIRONMENT || 'blue'; // ENVIRONMENT変数で環境を判定
 
 app.get('/', (req, res) => {
-  const color = environment === 'green' ? 'green' : 'blue';
+  // const color = environment === 'green' ? 'green' : 'blue';
+  const color = 'green'
   res.send(`
     <html>
       <body style="background-color: ${color};">
