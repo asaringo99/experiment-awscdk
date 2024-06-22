@@ -8,7 +8,7 @@ WORKDIR /usr/src/app
 COPY package*.json yarn.lock ./
 
 # 依存関係をインストール
-RUN yarn install
+RUN npm install
 
 # アプリケーションのソースをコピー
 COPY . .

@@ -44,32 +44,46 @@ export class AwsCdkStack extends Stack {
       securityGroup: securityGroup, // 既に作成したセキュリティグループを使用
     });
     // Target Groupの作成
-    const targetGroupBlue = new elbv2.ApplicationTargetGroup(this, 'BlueTarget', {
+    const targetGroupBlueFrontend = new elbv2.ApplicationTargetGroup(this, 'BlueTargetFrontend', {
       vpc: vpc,
       protocol: elbv2.ApplicationProtocol.HTTP,
       port: 80,
       targetType: elbv2.TargetType.IP,
-      targetGroupName: "BlueTarget",
+      targetGroupName: "BlueTargetFrontend",
     });
-    const targetGroupGreen = new elbv2.ApplicationTargetGroup(this, 'GreenTarget', {
+    const targetGroupGreenFrontend = new elbv2.ApplicationTargetGroup(this, 'GreenTargetFrontend', {
       vpc: vpc,
       protocol: elbv2.ApplicationProtocol.HTTP,
       port: 80,
       targetType: elbv2.TargetType.IP,
-      targetGroupName: "GreenTarget",
+      targetGroupName: "GreenTargetFrontend",
+    });
+    const targetGroupBlueBackend = new elbv2.ApplicationTargetGroup(this, 'BlueTargetBackend', {
+      vpc: vpc,
+      protocol: elbv2.ApplicationProtocol.HTTP,
+      port: 80,
+      targetType: elbv2.TargetType.IP,
+      targetGroupName: "BlueTargetBackend",
+    });
+    const targetGroupGreenBackend = new elbv2.ApplicationTargetGroup(this, 'GreenTargetBackend', {
+      vpc: vpc,
+      protocol: elbv2.ApplicationProtocol.HTTP,
+      port: 80,
+      targetType: elbv2.TargetType.IP,
+      targetGroupName: "GreenTargetBackend",
     });
     
     // ALBにHTTPリスナーを追加して、トラフィックをTarget Groupに転送する
     const bglistener = loadBalancer.addListener('ListenerGreen', {
       port: 80,
       protocol: elbv2.ApplicationProtocol.HTTP,
-      defaultAction: elbv2.ListenerAction.forward([targetGroupBlue]),
+      defaultAction: elbv2.ListenerAction.forward([targetGroupBlueFrontend]),
     });
     // テスト用のリスナーを追加する
     const testListener = loadBalancer.addListener('TestListener', {
       port: 8080, // 8080というテストポートを使用します。必要に応じて変更できます。
       protocol: elbv2.ApplicationProtocol.HTTP,
-      defaultAction: elbv2.ListenerAction.forward([targetGroupGreen]), // Greenのターゲットグループに転送
+      defaultAction: elbv2.ListenerAction.forward([targetGroupGreenFrontend]), // Greenのターゲットグループに転送
     });
     // ECSクラスタの作成
     const cluster = new ecs.Cluster(this, 'BlueGreenCluster', {
@@ -77,31 +91,35 @@ export class AwsCdkStack extends Stack {
       vpc: vpc,
     });
     // ECSタスク定義の作成
-    const taskDefinition = new ecs.FargateTaskDefinition(this, 'TutorialTaskDef', {
+    const taskDefinitionFrontend = new ecs.FargateTaskDefinition(this, 'TutorialTaskDefFrontend', {
       memoryLimitMiB: 512, // 必要なメモリを指定してください
       cpu: 256,            // 必要なCPUを指定してください
-      
+    });
+    const taskDefinitionBackend = new ecs.FargateTaskDefinition(this, 'TutorialTaskDefBackend', {
+      memoryLimitMiB: 512, // 必要なメモリを指定してください
+      cpu: 256,            // 必要なCPUを指定してください
     });
     // ECRリポジトリからコンテナイメージを取得。ecs-tutorialという名前のリポジトリで指定
-    const containerImage = ecs.ContainerImage.fromEcrRepository(ecr.Repository.fromRepositoryName(this, 'Repo', 'ecs-tutorial'));
-    const container = taskDefinition.addContainer('sample-app', {
-      image: containerImage,
+    const containerImageFrontend = ecs.ContainerImage.fromEcrRepository(ecr.Repository.fromRepositoryName(this, 'RepoFrontend', 'frontend-app'));
+    const containerImageBackend = ecs.ContainerImage.fromEcrRepository(ecr.Repository.fromRepositoryName(this, 'RepoBackend', 'backend-app'));
+    const containerFrontend = taskDefinitionFrontend.addContainer('sample-app-frontend', {
+      image: containerImageFrontend,
       memoryLimitMiB: 512,
-      // command: [
-      //   "/bin/sh",
-      //   "-c",
-      //   "echo 'hello world'",
-      //   "echo '<html> <head> <title>Amazon ECS Sample App</title> <style>body {margin-top: 40px; background-color: #00FFFF;} </style> </head><body> <div style=color:white;text-align:center> <h1>Amazon ECS Sample App</h1> <h2>Congratulations!</h2> <p>Your application is now running on a container in Amazon ECS.</p> </div></body></html>' > /usr/local/apache2/htdocs/index.html && httpd-foreground",
-      //   "echo '<html> <head> <title>Amazon ECS Sample App</title> <style>body {margin-top: 40px; background-color: #097969;} </style> </head><body> <div style=color:white;text-align:center> <h1>Amazon ECS Sample App</h1> <h2>Congratulations!</h2> <p>Your application is now running on a container in Amazon ECS.</p> </div></body></html>' > /usr/local/apache2/htdocs/index.html && httpd-foreground"
-      // ]
     });
-    container.addPortMappings({
+    const containerBackend = taskDefinitionBackend.addContainer('sample-app-backend', {
+      image: containerImageBackend,
+      memoryLimitMiB: 512,
+    });
+    containerFrontend.addPortMappings({
+      containerPort: 80
+    });
+    containerBackend.addPortMappings({
       containerPort: 80
     });
     // ECSサービスの作成（Fargateサービス）
-    const ecsFargateService = new ecs.FargateService(this, 'FargateService', {
+    const ecsFargateServiceFrontend = new ecs.FargateService(this, 'FargateServiceFrontend', {
       cluster: cluster,
-      taskDefinition: taskDefinition,
+      taskDefinition: taskDefinitionFrontend,
       desiredCount: 1,
       assignPublicIp: true,
       securityGroups: [securityGroup],
@@ -114,17 +132,67 @@ export class AwsCdkStack extends Stack {
       },
       platformVersion: ecs.FargatePlatformVersion.LATEST,
     });
-    const ecsFargateServiceAutoScaling = ecsFargateService.autoScaleTaskCount({
-      maxCapacity: 2,
-      minCapacity: 1
-    })
-    ecsFargateServiceAutoScaling.scaleOnMemoryUtilization("scale-memory-ave", {
-      targetUtilizationPercent: 40,
-      scaleInCooldown: cdk.Duration.seconds(60),
-      scaleOutCooldown: cdk.Duration.seconds(60),
-    })
+    const ecsFargateServiceBackend = new ecs.FargateService(this, 'FargateServiceBackend', {
+      cluster: cluster,
+      taskDefinition: taskDefinitionBackend,
+      desiredCount: 1,
+      assignPublicIp: true,
+      securityGroups: [securityGroup],
+      vpcSubnets: {
+        // 必要なサブネットを指定してください
+        subnetType: ec2.SubnetType.PUBLIC,
+      },
+      deploymentController: {
+        type: ecs.DeploymentControllerType.CODE_DEPLOY,
+      },
+      platformVersion: ecs.FargatePlatformVersion.LATEST,
+    });
     // タスクをTarget Groupに関連付け
-    targetGroupBlue.addTarget(ecsFargateService);
+    targetGroupBlueFrontend.addTarget(ecsFargateServiceFrontend);
+    targetGroupBlueBackend.addTarget(ecsFargateServiceBackend);
+
+    new elbv2.ApplicationListenerRule(
+      this,
+      `blue-frontend`,
+      {
+        priority: 1,
+        listener: bglistener,
+        targetGroups: [targetGroupBlueFrontend],
+        conditions: [elbv2.ListenerCondition.pathPatterns(["/frontend"])],
+      },
+    );
+    new elbv2.ApplicationListenerRule(
+      this,
+      `blue-backend`,
+      {
+        priority: 1,
+        listener: bglistener,
+        targetGroups: [targetGroupBlueBackend],
+        conditions: [elbv2.ListenerCondition.pathPatterns(["/api/*"])],
+      },
+    );
+
+    new elbv2.ApplicationListenerRule(
+      this,
+      `green-frontend`,
+      {
+        priority: 1,
+        listener: testListener,
+        targetGroups: [targetGroupGreenFrontend],
+        conditions: [elbv2.ListenerCondition.pathPatterns(["/frontend"])],
+      },
+    );
+    new elbv2.ApplicationListenerRule(
+      this,
+      `green-backend`,
+      {
+        priority: 1,
+        listener: testListener,
+        targetGroups: [targetGroupGreenBackend],
+        conditions: [elbv2.ListenerCondition.pathPatterns(["/api/*"])],
+      },
+    );
+
     // CodeDeployの定義
     const application = new codedeploy.EcsApplication(this, 'BlueGreenApp', {
       applicationName: 'tutorial-bluegreen-app',
@@ -134,13 +202,28 @@ export class AwsCdkStack extends Stack {
       assumedBy: new iam.ServicePrincipal('codedeploy.amazonaws.com'),
     });
     // デプロイグループの作成
-    new codedeploy.EcsDeploymentGroup(this, 'BlueGreenDG', {
+    new codedeploy.EcsDeploymentGroup(this, 'BlueGreenDGFrontend', {
       application: application,
       deploymentGroupName: "tutorial-bluegreen-dg",
-      service: ecsFargateService,  
+      service: ecsFargateServiceFrontend,  
       blueGreenDeploymentConfig: {
-        blueTargetGroup: targetGroupBlue,
-        greenTargetGroup: targetGroupGreen,
+        blueTargetGroup: targetGroupBlueFrontend,
+        greenTargetGroup: targetGroupGreenFrontend,
+        listener: bglistener,
+        testListener: testListener, 
+        deploymentApprovalWaitTime: cdk.Duration.minutes(30),  // Greenへの切り替わりを30分待機
+        terminationWaitTime: cdk.Duration.minutes(10) // 新しいタスクの開始後、古いタスクの停止までの待機時間
+      },
+      role: ecsCodeDeployRole,
+    });
+
+    new codedeploy.EcsDeploymentGroup(this, 'BlueGreenDGBackend', {
+      application: application,
+      deploymentGroupName: "tutorial-bluegreen-dg",
+      service: ecsFargateServiceBackend,  
+      blueGreenDeploymentConfig: {
+        blueTargetGroup: targetGroupBlueBackend,
+        greenTargetGroup: targetGroupGreenBackend,
         listener: bglistener,
         testListener: testListener, 
         deploymentApprovalWaitTime: cdk.Duration.minutes(30),  // Greenへの切り替わりを30分待機
