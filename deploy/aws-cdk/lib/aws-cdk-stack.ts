@@ -165,7 +165,7 @@ export class AwsCdkStack extends Stack {
       this,
       `blue-backend`,
       {
-        priority: 1,
+        priority: 2,
         listener: bglistener,
         targetGroups: [targetGroupBlueBackend],
         conditions: [elbv2.ListenerCondition.pathPatterns(["/api/*"])],
@@ -186,7 +186,7 @@ export class AwsCdkStack extends Stack {
       this,
       `green-backend`,
       {
-        priority: 1,
+        priority: 2,
         listener: testListener,
         targetGroups: [targetGroupGreenBackend],
         conditions: [elbv2.ListenerCondition.pathPatterns(["/api/*"])],
