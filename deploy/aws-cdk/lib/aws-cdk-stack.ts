@@ -204,7 +204,7 @@ export class AwsCdkStack extends Stack {
     // デプロイグループの作成
     new codedeploy.EcsDeploymentGroup(this, 'BlueGreenDGFrontend', {
       application: application,
-      deploymentGroupName: "tutorial-bluegreen-dg",
+      deploymentGroupName: "tutorial-bluegreen-dg-frontend",
       service: ecsFargateServiceFrontend,  
       blueGreenDeploymentConfig: {
         blueTargetGroup: targetGroupBlueFrontend,
@@ -219,7 +219,7 @@ export class AwsCdkStack extends Stack {
 
     new codedeploy.EcsDeploymentGroup(this, 'BlueGreenDGBackend', {
       application: application,
-      deploymentGroupName: "tutorial-bluegreen-dg",
+      deploymentGroupName: "tutorial-bluegreen-dg-backend",
       service: ecsFargateServiceBackend,  
       blueGreenDeploymentConfig: {
         blueTargetGroup: targetGroupBlueBackend,
@@ -234,9 +234,9 @@ export class AwsCdkStack extends Stack {
     
     // CodeDeployのアプリケーションとデプロイグループの参照
     const app = codedeploy.ServerApplication.fromServerApplicationName(this, 'ExistingApp', 'tutorial-bluegreen-app');
-    const deploymentGroup = codedeploy.ServerDeploymentGroup.fromServerDeploymentGroupAttributes(this, 'ExistingDG', {
-      application: app,
-      deploymentGroupName: 'tutorial-bluegreen-dg',
-    });
+    // const deploymentGroup = codedeploy.ServerDeploymentGroup.fromServerDeploymentGroupAttributes(this, 'ExistingDG', {
+    //   application: app,
+    //   deploymentGroupName: 'tutorial-bluegreen-dg',
+    // });
   }
 }
