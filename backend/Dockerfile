@@ -13,5 +13,7 @@ RUN npm install
 # アプリケーションのソースをコピー
 COPY . .
 
+EXPOSE 80
+
 # アプリケーションを開始
 CMD ["node", "server.js"]
